@@ -19,9 +19,6 @@ sidebar_menu()
 sidebar_placeholder = st.sidebar.empty()
 placeholder = st.empty()
 
-plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签 微软雅黑-
-plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
-
 
 def end_exam():
     st.session_state['bad_answer_radio'] = []
@@ -257,7 +254,7 @@ elif 'score' in st.session_state:
     st.write(f'选择题：{"、 ".join(st.session_state["bad_answer_radio"])}')
     st.write(f'填空题：{"、 ".join(st.session_state["bad_answer_fill"])}')
     plt.figure(figsize=(2, 2))
-    plt.pie([score, 100 - score], labels=['正确率', '错误率'], autopct='%.1f%%')
+    plt.pie([score, 100 - score], labels=['Correct', 'Mistake'], autopct='%.1f%%')
     plt.legend(fontsize=3, loc='upper right')
     st.pyplot(plt)
 
