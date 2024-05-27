@@ -1,6 +1,6 @@
+from matplotlib import pyplot as plt
 import json
 import math
-import os
 import random
 import time
 from datetime import datetime
@@ -19,20 +19,31 @@ sidebar_menu()
 sidebar_placeholder = st.sidebar.empty()
 placeholder = st.empty()
 
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # 用来正常显示中文标签 微软雅黑-
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
 
 def end_exam():
+    st.session_state['bad_answer_radio'] = []
+    st.session_state['bad_answer_fill'] = []
+    st.session_state['good_answer_radio'] = []
+    st.session_state['good_answer_fill'] = []
     count = 0
     # 选项与正确答案进行比较
-    for i, radio in enumerate(st.session_state['radios']):
-        if radio == st.session_state['answer'][i]:
+    for k, v in st.session_state['answer'].items():
+        if k in st.session_state['radios'] and v == st.session_state['radios'][k]:
             count += 1
-
+            st.session_state['good_answer_radio'].append(str(k + 1))
+        else:
+            st.session_state['bad_answer_radio'].append(str(k + 1))
     # 比较填空题答案
-    for i, answer in enumerate(st.session_state['fill_the_blank']):
-        print(answer)
-        print(st.session_state['answer_fill_the_blank'][i])
-        if answer.strip() == st.session_state['answer_fill_the_blank'][i].strip():
+    for k, v in st.session_state['blank'].items():
+        if k in st.session_state['answer_fill_the_blank'] \
+                and v.strip() == st.session_state['answer_fill_the_blank'][k].strip():
             count += 1
+            st.session_state['good_answer_fill'].append(str(k + 1))
+        else:
+            st.session_state['bad_answer_fill'].append(str(k + 1))
 
     # 获取考试对象
     exam_obj = st.session_state['exam']
@@ -58,7 +69,7 @@ def end_exam():
     end = datetime.strptime(now, "%Y-%m-%d %H:%M:%S")
     duration = end - start
     user_exam_db[str((user.username, exam_obj.eid))] = [exam_obj.start_time, str(duration), str(score)]
-    save_data('resources/data/exam_db.json', user_exam_db)
+    save_data('resources/data/user_exam_db.json', user_exam_db)
     st.rerun()
 
 
@@ -73,29 +84,21 @@ def show_exam(qid_lst):
     start = (curr_page - 1) * 10
     end = length if curr_page * 10 > length else curr_page * 10
 
-    # 记录单选题选项
-    if 'radios' not in st.session_state or st.session_state['radios'] is None:
-        st.session_state['radios'] = []
-
     # 记录用户单选题答案
-    if 'answer' not in st.session_state or st.session_state['answer'] is None:
-        st.session_state['answer'] = []
-    
-    # 记录填空题标准答案
-    if 'fill_the_blank' not in st.session_state \
-            or st.session_state['fill_the_blank'] is None:
-        st.session_state['fill_the_blank'] = []
-    
+    if 'radios' not in st.session_state or st.session_state['radios'] is None:
+        st.session_state['radios'] = {}
+
     # 记录用户输入的填空题答案    
     if 'answer_fill_the_blank' not in st.session_state \
             or st.session_state['answer_fill_the_blank'] is None:
-        st.session_state['answer_fill_the_blank'] = []
-    
+        st.session_state['answer_fill_the_blank'] = {}
+
     with placeholder.container():
         for i in range(start, end):
             qid = qid_lst[i]
             data = question_db[str(qid)]
             question = Question(*data.values())
+
             if question.kind == Question.SINGLE_CHOICE:
                 # 选项描述
                 options = []
@@ -104,29 +107,20 @@ def show_exam(qid_lst):
                     option = Option(*data_option.values())
                     # 添加选项
                     options.append(option.description)
-                    # 记录正确答案
-                    if option.is_right:
-                        st.session_state['answer'].append(option.description)
 
                 # 题目描述
                 radio = st.radio(f'{i + 1}.{question.description}', options=options,
                                  key=qid, index=None)
-
+                st.session_state['radios'][i] = radio
                 # 图片单选题
                 # if question.file_url != '':
                 #     st.image(os.path.join(os.getcwd(), question.file_url))
-
-                # 记录选项
-                st.session_state['radios'].append(radio)
             elif question.kind == Question.FILL_IN_THE_BLANKS:
                 data_option = option_db[str(question.option_list[0])]
                 option = Option(*data_option.values())
                 text_input = st.text_input(label=f'{i + 1}.{question.description}',
-                                           key=f'{option.description}')
-                st.session_state['fill_the_blank'].append(option.description)
-                st.session_state['answer_fill_the_blank'].append(text_input)
-
-
+                                           key=f'{i + 1}')
+                st.session_state['answer_fill_the_blank'][i] = text_input
 
 
 def choice_question(diff_level, exam_obj):
@@ -161,6 +155,26 @@ def choice_question(diff_level, exam_obj):
             exam_obj.questions.append(question.qid)
             temp -= 1
 
+    # 记录单选题选项
+    st.session_state['answer'] = {}
+
+    # 记录填空题标准答案
+    st.session_state['blank'] = {}
+
+    for i, qid in enumerate(exam_obj.questions):
+        data = question_db[str(qid)]
+        question = Question(*data.values())
+        if question.kind == Question.SINGLE_CHOICE:
+            for oid in question.option_list:
+                data_option = option_db[str(oid)]
+                option = Option(*data_option.values())
+                if option.is_right:
+                    st.session_state['answer'][i] = option.description
+        else:
+            data_option = option_db[str(question.option_list[0])]
+            option = Option(*data_option.values())
+            st.session_state['blank'][i] = option.description
+
     # 保存考试对象
     exam_db[exam_obj.eid] = exam_obj.__dict__
     # 保存考试数据
@@ -192,10 +206,6 @@ def exam_by_id(eid: str):
 
 
 if 'exam' not in st.session_state or st.session_state['exam'] is None:
-    dic_duration = {
-        '30分钟': 1800,
-        '60分钟': 3600,
-    }
     dic_level = {
         '简单': Exam.EASY,
         '中等': Exam.MID,
@@ -232,10 +242,28 @@ if 'exam' not in st.session_state or st.session_state['exam'] is None:
                         exam_by_id(exam_id)
 
 elif 'score' in st.session_state:
-    st.title(f'本次考试的成绩为：{st.session_state["score"]}分')
+    this_exam = st.session_state['exam']
+    score = st.session_state['score']
+    st.title('考试成绩分析')
+    st.subheader(f'试卷号：{this_exam.eid}')
+    st.subheader(f'成绩：{score}分')
+    count_good_answer = len(st.session_state['good_answer_radio']) + len(st.session_state['good_answer_fill'])
+    count_bad_answer = len(st.session_state["bad_answer_radio"]) + len(st.session_state["bad_answer_fill"])
+    st.subheader(f'题目数：{count_good_answer + count_bad_answer}')
+    st.subheader(f'答对题目：{count_good_answer}道')
+    st.write(f'选择题：{"、 ".join(st.session_state["good_answer_radio"])}')
+    st.write(f'填空题：{"、 ".join(st.session_state["good_answer_fill"])}')
+    st.subheader(f'答错题目：{count_bad_answer}道')
+    st.write(f'选择题：{"、 ".join(st.session_state["bad_answer_radio"])}')
+    st.write(f'填空题：{"、 ".join(st.session_state["bad_answer_fill"])}')
+    plt.figure(figsize=(2, 2))
+    plt.pie([score, 100 - score], labels=['正确率', '错误率'], autopct='%.1f%%')
+    plt.legend(fontsize=3, loc='upper right')
+    st.pyplot(plt)
+
     del st.session_state['score']
     st.session_state['exam'] = None
-    st.button('确定')
+    st.button('确定', type='primary')
 else:
     exam = st.session_state['exam']
     show_exam(exam.questions)
