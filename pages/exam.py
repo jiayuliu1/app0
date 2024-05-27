@@ -19,7 +19,7 @@ sidebar_menu()
 sidebar_placeholder = st.sidebar.empty()
 placeholder = st.empty()
 
-plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # 用来正常显示中文标签 微软雅黑-
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签 微软雅黑-
 plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 
 
